@@ -1,0 +1,19 @@
+# 凭据 —— 绝不入库(本 skill 自带真实 .env,放进任何 git 仓库时务必保持排除)
+.env
+
+# 运行期状态(可由 init/products --refresh 重新生成)
+state/*.json
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# API 后台运行产物
+scripts/*.pid
+scripts/*.log
+
+# 本地 IDE / 工具
+.claude/
+.omc/
+.DS_Store

@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# office-adobe-user-provision 自包含 CLI wrapper
+# 用法: ./oup <provider> <action> ...   或软链到 PATH 后: oup adobe create ...
+# 覆盖解释器: PYTHON=/path/to/python ./oup ...
+set -euo pipefail
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do                       # 解析软链,支持放进 PATH
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+PY="${PYTHON:-python3}"                           # 默认 python3(非交互 shell 里 python 可能是 py2)
+command -v "$PY" >/dev/null 2>&1 || PY=python
+cd "$DIR"                                         # cwd 必须是 skill 目录(.env/state 相对加载)
+exec "$PY" main.py "$@"
