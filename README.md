@@ -1,5 +1,7 @@
 # office-adobe-user-provision
 
+**English** | [中文](./README.zh-CN.md)
+
 > **Type:** Agent Skill (Claude Code / Anthropic-compatible) · **Entry point:** [`SKILL.md`](./SKILL.md)
 > **Capability:** provision & manage **Microsoft 365 (世纪互联 / 21Vianet)** and **Adobe Creative Cloud** users — create, license, reset password, delete, inspect, batch, selftest.
 > **Credentials:** none in this repo. Ships `.env.example` only; `.env` is git-ignored.
