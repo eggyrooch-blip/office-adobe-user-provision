@@ -1,62 +1,100 @@
 # office-adobe-user-provision
 
-统一开通 / 管理 **Microsoft 365(世纪互联版)** 与 **Adobe Creative Cloud** 用户的自包含 **Agent Skill**:创建、授权、重置密码、删除、查询、批量、自检。CLI / HTTP API 共用同一套 provider 实现。
-
-> 本仓库是一个 **Claude Code / Agent Skill**。任何智能体只要把它 clone 到自己的 skills 目录并填好 `.env`,即可学会这套开户能力。
-> **本仓库不含任何真实凭据**——只有 `.env.example` 模板。`.env` 已被 `.gitignore` 永久排除。
+> **Type:** Agent Skill (Claude Code / Anthropic-compatible) · **Entry point:** [`SKILL.md`](./SKILL.md)
+> **Capability:** provision & manage **Microsoft 365 (世纪互联 / 21Vianet)** and **Adobe Creative Cloud** users — create, license, reset password, delete, inspect, batch, selftest.
+> **Credentials:** none in this repo. Ships `.env.example` only; `.env` is git-ignored.
 
 ---
 
-## 一行安装(智能体 / 人都适用)
+## TL;DR for agents
 
-把仓库直接 clone 进 Claude Code 的 skills 目录,目录名即 skill 名:
+| | |
+|---|---|
+| **What it is** | A self-contained skill. `SKILL.md` holds the activation triggers and the operating procedure. |
+| **Install** | `git clone <this repo> ~/.claude/skills/office-adobe-user-provision` then restart the session. |
+| **Configure** | `cp .env.example .env` and fill your own Entra App / Adobe UMAPI / SMTP credentials. |
+| **Invoke** | `./oup <provider> <action> ...` (e.g. `./oup adobe create alice@corp.com --product cc`). |
+| **Runtime** | Python 3.9+. Use `./oup` or `python3 main.py` — **never bare `python`** (often Python 2). |
+
+## Is this a skill or a plain repo? — A skill.
+
+This repository **is** a Claude Code Skill. The contract:
+
+- [`SKILL.md`](./SKILL.md) begins with YAML frontmatter:
+  - `name: office-adobe-user-provision`
+  - `description:` one-liner **plus `USE WHEN ...` trigger phrases** that let an agent auto-activate it.
+- Claude Code discovers skills by scanning skill directories **at session start**. Placing this repo at
+  `~/.claude/skills/office-adobe-user-provision/` (global) or `<project>/.claude/skills/...` (project-scoped)
+  registers it. The **directory name is the skill name**, so clone it under that exact folder name.
+- It is **also** a standalone Python CLI/HTTP tool, so it works without any agent — handy for testing or scripting.
+
+## Install (clone-to-install)
 
 ```bash
+# Global (available in every session on this machine)
 git clone https://github.com/eggyrooch-blip/office-adobe-user-provision.git \
   ~/.claude/skills/office-adobe-user-provision
+
+# Project-scoped instead:
+#   git clone <url> <your-repo>/.claude/skills/office-adobe-user-provision
 ```
 
-> 项目级安装把目标换成 `<repo>/.claude/skills/office-adobe-user-provision` 即可。
-> 装好后**重启 Claude Code 会话**,skill 会在启动时被扫描加载,触发词见文末。
+Restart the Claude Code session afterward — the skill list loads at startup.
 
-## 配置(填凭据)
+## Configure
 
 ```bash
 cd ~/.claude/skills/office-adobe-user-provision
-cp .env.example .env          # 然后按注释填入你自己的 Entra App / Adobe UMAPI / SMTP 凭据
-pip install -r requirements.txt   # 需 Python 3.9+
+cp .env.example .env          # fill in your own credentials (see template comments)
+pip install -r requirements.txt
+./oup office365 init          # verify O365 credentials + fetch products
+./oup adobe init              # verify Adobe credentials + fetch products
 ```
 
-所需凭据(自备,见 `.env.example` 模板):
-- **Office 365**:Entra App `CLIENT_ID / TENANT_ID / CLIENT_SECRET`(需管理员同意 `User.ReadWrite.All` 等),`DEFAULT_DOMAIN`
-- **Adobe**:UMAPI `ADOBE_CLIENT_ID / ADOBE_CLIENT_SECRET / ADOBE_ORG_ID`
-- **可选**:SMTP 通知邮件配置
+Credentials you supply (see [`.env.example`](./.env.example)):
 
-## 用法
+- **Office 365** — Entra App `CLIENT_ID` / `TENANT_ID` / `CLIENT_SECRET` (admin consent for `User.ReadWrite.All`, `LicenseAssignment.ReadWrite.All`, `User-PasswordProfile.ReadWrite.All`), plus `DEFAULT_DOMAIN`.
+- **Adobe** — UMAPI `ADOBE_CLIENT_ID` / `ADOBE_CLIENT_SECRET` / `ADOBE_ORG_ID`.
+- **Optional** — SMTP block for credential notification emails.
+
+## Capabilities
 
 ```bash
-./oup office365 init           # 验证 O365 凭据 + 拉产品
-./oup adobe init               # 验证 Adobe 凭据 + 拉产品
-./oup office365 create <ldap> --display-name "<姓名>"
-./oup adobe create <ldap>@<domain> --product cc      # cc=全家桶 / ps / acrobat
-./oup <provider> inspect <id> --json                 # 查询
+./oup <provider> init                                  # verify creds + cache products
+./oup <provider> products [--refresh]                  # list / refresh product catalog
+./oup office365 create <ldap> --display-name "<Name>"  # create + auto-license + notify
+./oup adobe   create <ldap>@<domain> --product cc      # cc=All Apps · ps=Photoshop · acrobat=Acrobat Pro
+./oup <provider> assign  <id> --product <p>            # add a license/product
+./oup <provider> reset   <id>                          # reset password
+./oup <provider> delete  <id>                          # delete user
+./oup <provider> inspect <id> --json                   # query (read-only)
+./oup <provider> selftest                              # end-to-end (creates→licenses→resets→deletes a temp user)
+python3 -m app.api.server                              # HTTP API mirroring the CLI
 ```
 
-`oup` 是自带的 CLI wrapper(自动定位目录、加载 `.env`,可从任意路径调用)。等价于 `python3 main.py ...`。
-**别用裸 `python`**:很多机器上它指向 Python 2,会 SyntaxError。
+`provider` aliases: `office365` = `o365` = `m365`; `adobe` = `ps`.
+`oup` is the bundled CLI wrapper — it self-locates the skill dir, loads `.env`, and runs from any cwd. Equivalent to `python3 main.py ...`.
 
-详细步骤、安全红线、Red Flags 见 [`SKILL.md`](./SKILL.md)。
+## Activation triggers
 
-## 安全
+An agent should activate this skill when the user says (any language):
 
-- `.env` **永不入库**(`.gitignore` 已排除)。clone 后填的凭据只留在本地。
-- 提交前请确认 `git status` 不含 `.env`。
-- 凭据轮换只改 `.env`,代码不动(`config.py` 是唯一读取处)。
+`给 XX 开账号` · `新建用户` · `入职开账号` · `开 Office` · `开 Adobe` · `全家桶 / All Apps` · `重置密码` · `删除用户` · `批量开户` · `查用户` · "create user", "provision account", "add Office/Adobe license"
 
-## 触发词(智能体自动识别)
+## Safety rules (enforced in SKILL.md)
 
-`给 XX 开账号` · `新建用户` · `入职开账号` · `开 Office` · `开 Adobe` · `全家桶 / All Apps` · `重置密码` · `删除用户` · `批量开户` · `查用户`
+- **Never overwrite an existing user** — `inspect` first; if found, confirm reset vs skip.
+- **Never echo initial passwords to logs** — they go only into the notification email.
+- **Never invent the LDAP** — require it explicitly from the user.
+- **`.env` never enters git** — `.gitignore` excludes it; verify `git status` before any commit.
 
-## 架构
+## Architecture
 
-入口(`main.py` CLI / `app/api/server.py` Flask)→ `app/services/user_service.py`(统一业务门面)→ `app/providers/{office365,adobe}/`(对接外部 API)。扩展功能先加到 `user_service.py` 再让 CLI/API 暴露。
+```
+entry (main.py CLI · app/api/server.py Flask)
+   └─ app/services/user_service.py      ← single business facade (all entry points call this)
+        └─ app/providers/office365/     ← Graph API: auth, users, licenses, email
+        └─ app/providers/adobe/         ← UMAPI: auth, addAdobeID + group assignment
+```
+
+Extend by adding to `user_service.py` first, then exposing via CLI/API. Full procedure, Red Flags table, and per-provider details live in [`SKILL.md`](./SKILL.md).
